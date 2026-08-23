@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ПЕРЕХВАТ // СИСТЕМА</title>
+    <style>
+        body { background-color: #051105; color: #33ff33; font-family: 'Courier New', Courier, monospace; text-align: center; margin-top: 20px; text-shadow: 0 0 8px rgba(51, 255, 51, 0.7); overflow-x: hidden; user-select: none; transition: background-color 0.5s; }
+        
+        #matrix-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -2; opacity: 0.15; pointer-events: none; }
+        .crt-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 9999; }
+        .vignette { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.85) 100%); pointer-events: none; z-index: 9998; }
+        h1 { font-size: 2.5em; letter-spacing: 2px; text-transform: uppercase; border-bottom: 2px solid #33ff33; display: inline-block; padding-bottom: 10px; background: rgba(5, 17, 5, 0.8); }
+        
+        #status-banner { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border: 2px solid #33ff33; background-color: #020a02; color: #33ff33; font-weight: bold; box-shadow: 0 0 10px rgba(51, 255, 51, 0.5); z-index: 1000; display: none; }
+        #ping-corner { position: fixed; bottom: 20px; right: 20px; background: #020a02; border: 1px solid #33ff33; padding: 10px 15px; font-size: 14px; box-shadow: 0 0 10px rgba(51, 255, 51, 0.2); z-index: 1000; display: none; }
+        
+        button { background-color: rgba(10, 34, 10, 0.9); color: #33ff33; border: 2px solid #33ff33; padding: 15px 30px; font-size: 18px; font-family: 'Courier New', Courier, monospace; font-weight: bold; text-transform: uppercase; cursor: pointer; box-shadow: 4px 4px 0px #115511; transition: all 0.05s; margin: 10px; backdrop-filter: blur(2px); }
+        button:hover { background-color: #113311; }
+        button:active { transform: translate(4px, 4px); box-shadow: 0px 0px 0px #115511; }
+        .giant-btn { font-size: 30px; padding: 25px 50px; border: 4px solid #33ff33; box-shadow: 8px 8px 0px #115511; margin-top: 5vh; }
+        .giant-btn:active { transform: translate(8px, 8px); box-shadow: 0px 0px 0px #115511; }
+        .dev-btn { font-size: 14px; padding: 10px 20px; border-color: #cccc33; color: #cccc33; box-shadow: 4px 4px 0px #66661a; background-color: rgba(2, 10, 2, 0.9); margin: 0; }
+        .dev-btn:active { box-shadow: 0px 0px 0px #66661a; transform: translate(4px, 4px); }
+        
+        input[type="text"].regular-input { background: rgba(0, 0, 0, 0.8); color: #33ff33; border: 2px solid #33ff33; padding: 12px; font-size: 18px; width: 200px; margin-bottom: 15px; font-family: 'Courier New', Courier, monospace; outline: none; text-align: center; text-transform: uppercase; }
+        input[type="text"].regular-input:focus { background: #0a220a; box-shadow: inset 0 0 10px rgba(51, 255, 51, 0.5); }
+        
+        #lobby-screen, #game-screen, #boot-screen, #dev-role-screen { display: none; }
+        #start-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 90vh; }
+        #boot-screen { text-align: left; padding: 40px; font-size: 20px; line-height: 1.5; background: rgba(5, 17, 5, 0.9); display: inline-block; margin-top: 10vh; border: 1px solid #33ff33; }
+        
+        .rules-panel { width: 450px; background: rgba(2, 10, 2, 0.85); border: 2px solid #33ff33; padding: 20px; text-align: left; box-shadow: inset 0 0 15px rgba(51, 255, 51, 0.1); backdrop-filter: blur(3px); }
+        .rules-panel h3 { border-bottom: 1px dashed #33ff33; padding-bottom: 10px; margin-top: 0; }
+        .role-desc { margin-bottom: 15px; border-left: 3px solid #33ff33; padding-left: 10px; background: rgba(51, 255, 51, 0.05); padding: 10px; font-size: 14px; }
+        
+        /* СТРУКТУРА ИГРОВОГО ЭКРАНА С БОКОВЫМИ ПАНЕЛЯМИ */
+        .game-layout { display: flex; justify-content: center; gap: 20px; align-items: flex-start; max-width: 1400px; margin: 0 auto; margin-top: 10px; flex-wrap: wrap; }
+        
+        /* ПАНЕЛЬ СЛОВАРЯ (ЛЕВАЯ) */
+        .codebook-panel { 
+            width: 250px; height: 600px; background: rgba(5, 17, 5, 0.9); border: 2px solid #33ff33; 
+            box-shadow: inset 0 0 15px rgba(51, 255, 51, 0.2); backdrop-filter: blur(4px); 
+            display: flex; flex-direction: column; text-align: left; transition: all 0.5s;
+        }
+        .codebook-panel h3 { margin: 0; padding: 15px; border-bottom: 2px solid #33ff33; text-align: center; background: #0a220a; transition: all 0.5s; }
+        .codebook-list { flex-grow: 1; overflow-y: auto; padding: 10px; font-size: 16px; line-height: 1.6; }
+        .codebook-word { border-bottom: 1px dashed rgba(51, 255, 51, 0.3); padding: 5px 0; transition: all 0.5s; }
+        .codebook-list::-webkit-scrollbar { width: 8px; }
+        .codebook-list::-webkit-scrollbar-track { background: #020a02; }
+        .codebook-list::-webkit-scrollbar-thumb { background: #33ff33; }
+
+        /* ПАНЕЛЬ АЛФАВИТА (ПРАВАЯ ЦЕНТРАЛЬНАЯ) */
+        .alphabet-panel { 
+            width: 280px; min-height: 400px; background: rgba(5, 17, 5, 0.9); border: 2px solid #33ff33; 
+            box-shadow: inset 0 0 15px rgba(51, 255, 51, 0.2); backdrop-filter: blur(4px); 
+            display: flex; flex-direction: column; text-align: center; transition: all 0.5s;
+            margin-top: 20px;
+        }
+        .alphabet-panel h3 { margin: 0; padding: 15px; border-bottom: 2px solid #33ff33; background: #0a220a; transition: all 0.5s; font-size: 16px; }
+        .alphabet-grid { 
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 10px; 
+            font-size: 12px; line-height: 1.3;
+        }
+        .alphabet-cell { 
+            border: 1px solid rgba(51, 255, 51, 0.3); padding: 4px 2px; 
+            background: rgba(51, 255, 51, 0.05); text-align: center;
+        }
+        .alphabet-letter { font-weight: bold; color: #33ff33; font-size: 14px; }
+        .alphabet-mapping { color: #777; font-size: 10px; }
+        
+        /* ТЕМА ФСБ ДЛЯ АЛФАВИТА */
+        body.fsb-mode .alphabet-panel { border-color: #ff3333; box-shadow: inset 0 0 15px rgba(255, 51, 51, 0.2); }
+        body.fsb-mode .alphabet-panel h3 { border-bottom-color: #ff3333; background: #220a0a; color: #ff3333; }
+        body.fsb-mode .alphabet-cell { border-color: rgba(255, 51, 51, 0.3); background: rgba(255, 51, 51, 0.05); }
+        body.fsb-mode .alphabet-letter { color: #ff3333; }
+        body.fsb-mode .alphabet-mapping { color: #999; }
+
+        /* ПАНЕЛЬ СТАТИСТИКИ (ПРАВАЯ) */
+        .scoreboard-panel { 
+            width: 250px; height: 600px; background: rgba(5, 17, 5, 0.9); border: 2px solid #33ff33; 
+            box-shadow: inset 0 0 15px rgba(51, 255, 51, 0.2); backdrop-filter: blur(4px); 
+            display: flex; flex-direction: column; text-align: center; transition: all 0.5s;
+        }
+        .scoreboard-panel h3 { margin: 0; padding: 15px; border-bottom: 2px solid #33ff33; background: #0a220a; transition: all 0.5s; }
+
+        /* ТЕМА ФСБ */
+        body.fsb-mode .codebook-panel, body.fsb-mode .scoreboard-panel { border-color: #ff3333; box-shadow: inset 0 0 15px rgba(255, 51, 51, 0.2); }
+        body.fsb-mode .codebook-panel h3, body.fsb-mode .scoreboard-panel h3 { border-bottom-color: #ff3333; background: #220a0a; color: #ff3333; }
+        body.fsb-mode .codebook-word { color: #ff3333; border-bottom-color: rgba(255, 51, 51, 0.3); }
+        body.fsb-mode .codebook-list::-webkit-scrollbar-thumb { background: #ff3333; }
+        body.fsb-mode h1 { border-bottom-color: #ff3333; color: #ff3333; }
+
+        /* ЦЕНТРАЛЬНАЯ ПАНЕЛЬ ИГРЫ */
+        .role-panel-container { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 800px; }
+        .hardware-panel { border: 2px solid #33ff33; background: rgba(5, 17, 5, 0.9); padding: 30px; box-shadow: inset 0 0 20px rgba(51, 255, 51, 0.1); position: relative; width: 100%; box-sizing: border-box; backdrop-filter: blur(4px); }
+        
+        .word-inputs { display: flex; gap: 15px; justify-content: center; margin-top: 20px; margin-bottom: 30px; }
+        .letter-box { width: 60px; height: 80px; font-size: 50px; text-align: center; background: #000; color: #33ff33; border: 3px solid #33ff33; font-family: 'Courier New', Courier, monospace; outline: none; text-transform: uppercase; transition: all 0.1s; }
+        .letter-box:focus { background: #0a220a; border-color: #fff; box-shadow: 0 0 15px rgba(51, 255, 51, 0.8); }
+        
+        .led-container { position: absolute; top: 15px; right: 20px; display: flex; gap: 10px; }
+        .led-box { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: #777; font-weight: bold; }
+        .led { width: 15px; height: 15px; border-radius: 50%; background: #020a02; border: 2px solid #555; margin-bottom: 5px; transition: all 0.1s; }
+        .led.yellow { background: #ffcc00; box-shadow: 0 0 15px #ffcc00, inset 0 0 5px #fff; border-color: #fff; }
+        .led.green { background: #33ff33; box-shadow: 0 0 15px #33ff33, inset 0 0 5px #fff; border-color: #fff; }
+        
+        .encryption-modules { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin: 0 auto 30px auto; border-top: 1px dashed #33ff33; padding-top: 20px; max-width: 700px; }
+        .enc-btn { font-size: 14px; padding: 10px 15px; border-color: #ff9900; color: #ff9900; box-shadow: 3px 3px 0px #804d00; margin: 5px; }
+        .send-btn { font-size: 24px; padding: 20px 60px; background: #33ff33; color: #000; box-shadow: 6px 6px 0px #115511; border: none; }
+        
+        .cipher-display { border: 2px solid #ff3333; padding: 20px; background: rgba(255,51,51,0.05); margin-bottom: 20px; box-shadow: inset 0 0 15px rgba(255,51,51,0.2); }
+        .key-display { border: 2px solid #cccc33; padding: 15px; background: rgba(204,204,51,0.05); margin-bottom: 30px; box-shadow: inset 0 0 15px rgba(204,204,51,0.2); }
+        .decryption-guide { display: none; width: auto; height: 330px; box-sizing: border-box; overflow-y: auto; margin: 12px; background: rgba(10, 2, 2, 0.92); border: 2px solid #ff3333; box-shadow: inset 0 0 15px rgba(255, 51, 51, 0.18); padding: 12px; text-align: left; }
+        .decryption-guide h3 { margin: 0 0 10px 0; padding-bottom: 10px; border-bottom: 1px solid #ff3333; color: #ff3333; text-align: center; font-size: 16px; }
+        .guide-intro { color: #999; font-size: 11px; line-height: 1.45; margin: 0 0 12px 0; }
+        .guide-item { border: 1px solid rgba(255, 51, 51, 0.35); background: rgba(255, 51, 51, 0.04); padding: 9px; margin-bottom: 8px; }
+        .guide-title { color: #ff9900; font-size: 12px; font-weight: bold; margin-bottom: 5px; }
+        .guide-example { color: #fff; font-size: 12px; line-height: 1.5; word-break: break-word; }
+        .guide-note { color: #777; font-size: 10px; margin-top: 4px; line-height: 1.35; }
+        .decryption-guide::-webkit-scrollbar { width: 7px; }
+        .decryption-guide::-webkit-scrollbar-track { background: #020202; }
+        .decryption-guide::-webkit-scrollbar-thumb { background: #ff3333; }
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* ЭКРАН КОНЦА ИГРЫ */
+        #game-over-screen {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.95); z-index: 10000; flex-direction: column;
+            justify-content: center; align-items: center;
+        }
+    
+        /* ===== ОБЛЕГЧЁННЫЙ БАЛАНС ===== */
+        .balance-tip {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border: 1px solid #666;
+            background: rgba(20,20,20,.65);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .balance-tip strong { color: #cccc33; }
+
+</style>
+</head>
+<body>
+    <canvas id="matrix-bg"></canvas>
+    <div class="crt-overlay"></div>
+    <div class="vignette"></div>
+    
+    <div id="status-banner" class="blink">[ УСТАНОВКА СОЕДИНЕНИЯ... ]</div>
+    <div id="ping-corner">PING: <span id="ping-value">...</span></div>
+
+    <!-- ЭКРАН КОНЦА ИГРЫ -->
+    <div id="game-over-screen">
+        <h1 id="winner-text" style="font-size: 60px; text-shadow: 0 0 20px;">ПЕРЕХВАТ ЗАВЕРШЕН</h1>
+        <h2 id="final-score-text" style="font-size: 30px; color: #fff; margin-bottom: 40px;">АГЕНТ: 0 | ФСБ: 0</h2>
+        <button onclick="exitRoleDev()">[ ВЕРНУТЬСЯ В МЕНЮ ]</button>
+    </div>
+
+    <!-- СТАРТ -->
+    <div id="start-screen"><button class="giant-btn blink" onclick="startBootSequence()">[ ВХОД В СИСТЕМУ ]</button></div>
+    <div id="boot-screen"></div>
+
+    <!-- ЛОББИ -->
+    <div id="lobby-screen">
+        <h1 id="main-title">ТЕРМИНАЛ // ДОСТУП</h1>
+        <div style="display: flex; justify-content: center; gap: 40px; margin-top: 20px; align-items: flex-start;">
+            <div style="display: flex; flex-direction: column; gap: 20px; width: 350px;">
+                <div style="border: 2px solid #33ff33; padding: 20px; background: rgba(2, 10, 2, 0.85); backdrop-filter: blur(3px);">
+                    <h3>[ ХОСТ СЕССИИ ]</h3>
+                    <button onclick="createLobby()">СОЗДАТЬ КАНАЛ</button>
+                    <p style="margin-top: 20px;">ПОРТ СВЯЗИ: <strong id="my-code" style="font-size: 24px;">----</strong></p>
+                    <p id="waiting-msg" style="color: #cccc33; display: none;" class="blink">ОЖИДАНИЕ СУБЪЕКТОВ (1/3)...</p>
+                </div>
+                <div style="border: 2px solid #33ff33; padding: 20px; background: rgba(2, 10, 2, 0.85); backdrop-filter: blur(3px);">
+                    <h3>[ ВНЕШНЕЕ ПОДКЛЮЧЕНИЕ ]</h3>
+                    <input type="text" class="regular-input" id="join-code" placeholder="ВВОД КОДА">
+                    <br><button onclick="joinLobby()">ПЕРЕХВАТ</button>
+                </div>
+            </div>
+            <div class="rules-panel">
+                <h3>[ БАЗА ЗНАНИЙ: РОЛИ ]</h3>
+                <div class="role-desc"><strong>📡 СВЯЗНОЙ:</strong> Передайте 15 слов из СЛОВАРЯ. Зашифруйте их комбинацией методов (1-3 шифра).</div>
+                <div class="role-desc"><strong>🕵️ АГЕНТ:</strong> Получайте шифры. КЛЮЧ ПОВРЕЖДЁН - показывается не полностью! Успейте расшифровать за 18 сек.</div>
+                <div class="role-desc"><strong>👁️ ФСБ:</strong> Перехватите пакет без ключа. Используйте АНАЛИЗАТОР для подсказок. Время: 20 сек.</div>
+            </div>
+        </div>
+        <div style="margin-top: 30px;">
+            <button class="dev-btn" onclick="openDevRoleScreen()" style="font-size: 18px; padding: 15px 30px;">[ ОДИНОЧНАЯ ИГРА (ПРОТИВ БОТОВ) ]</button>
+        </div>
+    </div>
+
+    <!-- ВЫБОР РОЛИ (ТЕСТ) -->
+    <div id="dev-role-screen">
+        <h1 id="dev-title">[ ОДИНОЧНЫЙ РЕЖИМ ]</h1>
+        <p style="color: #cccc33;">ВЫБЕРИТЕ РОЛЬ ДЛЯ СИМУЛЯЦИИ (15 РАУНДОВ):</p>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 30px;">
+            <button style="width: 400px;" onclick="chooseRole('sender', true)">[ ИГРАТЬ: СВЯЗНОЙ ]</button>
+            <button style="width: 400px;" onclick="chooseRole('receiver', true)">[ ИГРАТЬ: АГЕНТ ]</button>
+            <button style="width: 400px; border-color: #ff3333; color: #ff3333;" onclick="chooseRole('fsb', true)">[ ИГРАТЬ: ФСБ ]</button>
+            <button class="dev-btn" onclick="cancelDevRole()" style="margin-top: 30px;">[ НАЗАД ]</button>
+        </div>
+    </div>
+
+    <!-- ИГРОВОЙ ЭКРАН -->
+    <div id="game-screen">
+        <h1 id="game-title" style="margin-bottom: 5px;">[ СЕССИЯ АКТИВНА ] <span id="room-display" style="font-size: 16px; color: #777;"></span></h1>
+        
+        <div id="dev-exit-container" style="display: none; margin-bottom: 20px;">
+            <button class="dev-btn" onclick="exitRoleDev()" style="border-color: #ff9900; color: #ff9900; box-shadow: 4px 4px 0px #804d00;">[ ⏪ ПРЕРВАТЬ СИМУЛЯЦИЮ ]</button>
+        </div>
+
+        <div class="game-layout">
+            
+            <!-- ЛЕВАЯ ПАНЕЛЬ (СЛОВАРЬ) -->
+            <div class="codebook-panel">
+                <h3>[ СЛОВАРЬ ]</h3>
+                <div class="codebook-list" id="codebook-list">
+                    <!-- Слова генерируются JS -->
+                </div>
+            </div>
+
+            <!-- ЦЕНТРАЛЬНАЯ ПАНЕЛЬ (РОЛИ) -->
+            <div>
+                <!-- РОЛЬ 1: ОТПРАВИТЕЛЬ -->
+                <div id="role-sender" class="role-panel-container">
+                    <div class="hardware-panel">
+                        <div class="led-container">
+                            <div class="led-box"><div class="led" id="led-1"></div>ШИФР</div>
+                            <div class="led-box"><div class="led" id="led-2"></div>СВЯЗЬ</div>
+                            <div class="led-box"><div class="led" id="led-3"></div>ОТПРАВКА</div>
+                        </div>
+                        <h3>МОДУЛЬ ПЕРЕДАЧИ ДАННЫХ</h3>
+                        <p style="color: #777;">ВВЕДИТЕ СЛОВО ИЗ СЛОВАРЯ (СЛЕВА):</p>
+                        <div class="word-inputs">
+                            <input type="text" maxlength="1" class="letter-box sender-box">
+                            <input type="text" maxlength="1" class="letter-box sender-box">
+                            <input type="text" maxlength="1" class="letter-box sender-box">
+                            <input type="text" maxlength="1" class="letter-box sender-box">
+                            <input type="text" maxlength="1" class="letter-box sender-box">
+                            <input type="text" maxlength="1" class="letter-box sender-box">
+                        </div>
+                        <p style="color: #ff9900;">АКТИВАЦИЯ ПРОТОКОЛОВ ИСКАЖЕНИЯ:</p>
+                        <div class="encryption-modules">
+                            <button class="enc-btn" onclick="applyEncryption('reverse')">[ ИНВЕРСИЯ ]</button>
+                            <button class="enc-btn" onclick="applyEncryption('swap')">[ ПЕРЕСТАНОВКА ]</button>
+                            <button class="enc-btn" onclick="applyEncryption('shift')">[ СДВИГ +1 ]</button>
+                            <button class="enc-btn" onclick="applyEncryption('shift_minus')">[ СДВИГ -1 ]</button>
+                            <button class="enc-btn" onclick="applyEncryption('atbash')">[ АТБАШ (ЗЕРКАЛО) ]</button>
+                            <button class="enc-btn" onclick="applyEncryption('noise')">[ ШУМ ]</button>
+                            <button class="enc-btn" onclick="resetWord()" style="border-color:#ff3333; color:#ff3333; box-shadow: 3px 3px 0px #660000; margin-left: 20px;">[ СБРОС ]</button>
+                        </div>
+                        <button class="send-btn" onclick="transmitData()">ОТПРАВИТЬ ПАКЕТ</button>
+                    </div>
+                </div>
+
+                <!-- РОЛЬ 2: АГЕНТ -->
+                <div id="role-receiver" class="role-panel-container">
+                    <div class="hardware-panel">
+                        <h3>ТЕРМИНАЛ АГЕНТА</h3>
+                        <div style="border: 1px dashed #cccc33; padding: 8px; margin-bottom: 15px; background: rgba(204,204,51,0.03); font-size: 11px; color: #cccc33;">
+                            ⚠ КЛЮЧ ПОВРЕЖДЁН ПРИ ПЕРЕДАЧЕ - ВОЗМОЖНЫ ПОТЕРИ ДАННЫХ
+                        </div>
+                        <div class="cipher-display">
+                            <p style="color: #ff3333; margin: 0; font-size: 14px;">ВХОДЯЩИЙ ПАКЕТ ДАННЫХ:</p>
+                            <h2 id="receiver-cipher-text" class="blink" style="letter-spacing: 10px; margin: 15px 0; font-size: 32px; color: #ff3333;">ОЖИДАНИЕ ПАКЕТА...</h2>
+                        </div>
+                        <div class="key-display">
+                            <p style="color: #cccc33; margin: 0; font-size: 14px;">СИСТЕМНЫЙ КЛЮЧ ДЕШИФРОВКИ (ЧАСТИЧНЫЙ):</p>
+                            <h3 id="receiver-key-text" style="margin: 15px 0; font-size: 20px; color: #555;">[ НЕТ ДАННЫХ ]</h3>
+                        </div>
+                        <p style="color: #777;">ВВЕДИТЕ РАСШИФРОВАННОЕ СЛОВО ИЗ СЛОВАРЯ:</p>
+                        <div class="word-inputs">
+                            <input type="text" maxlength="1" class="letter-box receiver-box">
+                            <input type="text" maxlength="1" class="letter-box receiver-box">
+                            <input type="text" maxlength="1" class="letter-box receiver-box">
+                            <input type="text" maxlength="1" class="letter-box receiver-box">
+                            <input type="text" maxlength="1" class="letter-box receiver-box">
+                            <input type="text" maxlength="1" class="letter-box receiver-box">
+                        </div>
+                        <button class="send-btn" onclick="submitReceiverWord()">ПОДТВЕРДИТЬ ВЗЛОМ</button>
+                    </div>
+                </div>
+
+                <!-- РОЛЬ 3: ФСБ -->
+                <div id="role-fsb" class="role-panel-container">
+                    <div class="hardware-panel" style="border-color: #ff3333; box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.1);">
+                        <h3 style="color: #ff3333; text-shadow: 0 0 8px rgba(255, 51, 51, 0.7);">ТЕРМИНАЛ ПЕРЕХВАТА</h3>
+                        <div style="border: 1px dashed #ff3333; padding: 8px; margin-bottom: 15px; background: rgba(255,51,51,0.03); font-size: 11px; color: #ff9999;">
+                            🔍 АНАЛИЗАТОР АКТИВЕН - ИСПОЛЬЗУЙТЕ ПОДСКАЗКИ СПРАВА
+                        </div>
+                        <div class="cipher-display" style="border-color: #ff3333;">
+                            <p style="color: #ff3333; margin: 0; font-size: 14px;">СЫРОЙ ПАКЕТ ДАННЫХ (БЕЗ КЛЮЧА):</p>
+                            <h2 id="fsb-cipher-text" class="blink" style="letter-spacing: 10px; margin: 15px 0; font-size: 32px; color: #ff3333;">ОЖИДАНИЕ ПАКЕТА...</h2>
+                        </div>
+                        <p style="color: #777;">ВВЕДИТЕ РЕЗУЛЬТАТ ИЗ СЛОВАРЯ:</p>
+                        <div class="word-inputs">
+                            <input type="text" maxlength="1" class="letter-box fsb-box" style="border-color: #ff3333; color: #ff3333;">
+                            <input type="text" maxlength="1" class="letter-box fsb-box" style="border-color: #ff3333; color: #ff3333;">
+                            <input type="text" maxlength="1" class="letter-box fsb-box" style="border-color: #ff3333; color: #ff3333;">
+                            <input type="text" maxlength="1" class="letter-box fsb-box" style="border-color: #ff3333; color: #ff3333;">
+                            <input type="text" maxlength="1" class="letter-box fsb-box" style="border-color: #ff3333; color: #ff3333;">
+                            <input type="text" maxlength="1" class="letter-box fsb-box" style="border-color: #ff3333; color: #ff3333;">
+                        </div>
+                        <button class="send-btn" style="background: #ff3333; box-shadow: 6px 6px 0px #660000;" onclick="submitFsbWord()">ПОДТВЕРДИТЬ ВЗЛОМ</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ПРАВАЯ ПАНЕЛЬ (АЛФАВИТ И СТАТИСТИКА) -->
+            <div style="display: flex; flex-direction: column;">
+            
+            <!-- ПАНЕЛЬ АЛФАВИТА -->
+            <div class="alphabet-panel">
+                <h3>[ СПРАВОЧНИК: АЛФАВИТ ]</h3>
+                <div class="alphabet-grid" id="alphabet-grid">
+                    <!-- Генерируется JS -->
+                </div>
+            </div>
+            
+            <!-- ПАНЕЛЬ СТАТИСТИКИ -->
+            <div class="scoreboard-panel">
+            <!-- СПРАВОЧНАЯ ПАНЕЛЬ ФСБ -->
+            <div id="fsb-decryption-guide" class="decryption-guide">
+                <h3>[ АНАЛИЗАТОР: ШИФРЫ ]</h3>
+<div class="balance-tip">
+    <strong>ПАМЯТКА:</strong><br>
+    Большинство пакетов используют только 1 способ шифрования.
+    Комбинации из 2 способов встречаются реже, а 3 способа — очень редко.
+</div>
+
+                <p class="guide-intro">Все доступные протоколы и принцип их работы. Используйте примеры как ориентир при ручной расшифровке.</p>
+
+                <div class="guide-item">
+                    <div class="guide-title">ИНВЕРСИЯ</div>
+                    <div class="guide-example">АРХИВ → ВИХРА</div>
+                    <div class="guide-note">Слово читается в обратном порядке.</div>
+                </div>
+
+                <div class="guide-item">
+                    <div class="guide-title">ПЕРЕСТАНОВКА</div>
+                    <div class="guide-example">АРХИВ → РАХВИ</div>
+                    <div class="guide-note">Символы меняются местами попарно: 1↔2, 3↔4, 5↔6.</div>
+                </div>
+
+                <div class="guide-item">
+                    <div class="guide-title">СДВИГ +1</div>
+                    <div class="guide-example">АРХИВ → БСЦЙГ</div>
+                    <div class="guide-note">Каждая буква заменяется следующей буквой русского алфавита.</div>
+                </div>
+
+                <div class="guide-item">
+                    <div class="guide-title">СДВИГ -1</div>
+                    <div class="guide-example">АРХИВ → ЯПФЗБ</div>
+                    <div class="guide-note">Каждая буква заменяется предыдущей буквой русского алфавита.</div>
+                </div>
+
+                <div class="guide-item">
+                    <div class="guide-title">АТБАШ</div>
+                    <div class="guide-example">А ↔ Я &nbsp; Б ↔ Ю &nbsp; В ↔ Э</div>
+                    <div class="guide-note">Алфавит зеркально переворачивается: первая буква меняется на последнюю, вторая — на предпоследнюю и т.д.</div>
+                </div>
+
+                <div class="guide-item">
+                    <div class="guide-title">ШУМ</div>
+                    <div class="guide-example">АРХИВ → АРХИВ7</div>
+                    <div class="guide-note">К слову добавляются случайные цифры/символы, пока длина не достигнет 6 знаков. При расшифровке лишние не-буквенные символы удаляются.</div>
+                </div>
+            </div>
+
+                <h3>[ СТАТИСТИКА ]</h3>
+                <div style="font-size: 24px; margin-top: 20px;">РАУНД: <br><span id="ui-round" style="font-size: 36px; color: #ff9900;">0</span> / 15</div>
+                <div style="margin-top: 40px; font-size: 18px;">ВЗЛОМ АГЕНТА:</div>
+                <div id="ui-score-agent" style="font-size: 40px; color: #33ff33; font-weight: bold;">0</div>
+                <div style="margin-top: 20px; font-size: 18px;">ВЗЛОМ ФСБ:</div>
+                <div id="ui-score-fsb" style="font-size: 40px; color: #ff3333; font-weight: bold;">0</div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // --- СОХРАНЕНИЕ ПРОГРЕССА ПРИ ОБНОВЛЕНИИ СТРАНИЦЫ (ONLINE РЕЖИМ) ---
+        const SAVE_KEY = 'perehvat_online_save_v0.4';
+        
+        function saveGameProgress() {
+            if (!myRole || !currentLobby) return;
+            const saveData = {
+                role: myRole,
+                lobby: currentLobby,
+                agentScore: agentScore,
+                fsbScore: fsbScore,
+                round: currentRound,
+                isDevMode: isDevMode,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+        }
+        
+        function loadGameProgress() {
+            const saved = localStorage.getItem(SAVE_KEY);
+            if (!saved) return null;
+            try {
+                const data = JSON.parse(saved);
+                // Сохранение действует 10 минут
+                if (Date.now() - data.timestamp > 600000) {
+                    localStorage.removeItem(SAVE_KEY);
+                    return null;
+                }
+                return data;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        function clearSaveProgress() {
+            localStorage.removeItem(SAVE_KEY);
+        }
+        
+        // Автосохранение при закрытии страницы
+        window.addEventListener('beforeunload', () => {
+            if (myRole && currentLobby) {
+                saveGameProgress();
+            }
+        });
+        
+        // Восстановление при загрузке страницы
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = loadGameProgress();
+            if (saved && socket.connected) {
+                // Попытка восстановить сессию
+                setTimeout(() => {
+                    socket.emit('restore_session', saved);
+                }, 1000);
+            }
+        });
+        
+        // Обработка ответа от сервера на восстановление сессии
+        socket.on('session_restored', (data) => {
+            if (data.success && data.gameState) {
+                agentScore = data.gameState.agentScore || 0;
+                fsbScore = data.gameState.fsbScore || 0;
+                currentRound = data.gameState.round || 0;
+                currentLobby = data.gameState.lobby;
+                chooseRole(data.gameState.role, data.gameState.isDevMode);
+                clearSaveProgress();
+            }
+        });
+
+        // --- РУССКИЙ АЛФАВИТ ДЛЯ СПРАВОЧНИКА ---
+        // --- РАСШИРЕННЫЙ АЛФАВИТ С ЦИФРАМИ И СИМВОЛАМИ ---
+        const russianAlphabet = [
+            { letter: 'А', mapping: 'A' }, { letter: 'Б', mapping: 'B' }, { letter: 'В', mapping: 'V' },
+            { letter: 'Г', mapping: 'G' }, { letter: 'Д', mapping: 'D' }, { letter: 'Е', mapping: 'E' },
+            { letter: 'Ё', mapping: 'Yo' }, { letter: 'Ж', mapping: 'Zh' }, { letter: 'З', mapping: 'Z' },
+            { letter: 'И', mapping: 'I' }, { letter: 'Й', mapping: 'Y' }, { letter: 'К', mapping: 'K' },
+            { letter: 'Л', mapping: 'L' }, { letter: 'М', mapping: 'M' }, { letter: 'Н', mapping: 'N' },
+            { letter: 'О', mapping: 'O' }, { letter: 'П', mapping: 'P' }, { letter: 'Р', mapping: 'R' },
+            { letter: 'С', mapping: 'S' }, { letter: 'Т', mapping: 'T' }, { letter: 'У', mapping: 'U' },
+            { letter: 'Ф', mapping: 'F' }, { letter: 'Х', mapping: 'Kh' }, { letter: 'Ц', mapping: 'Ts' },
+            { letter: 'Ч', mapping: 'Ch' }, { letter: 'Ш', mapping: 'Sh' }, { letter: 'Щ', mapping: 'Sch' },
+            { letter: 'Ъ', mapping: '"' }, { letter: 'Ы', mapping: 'Y' }, { letter: 'Ь', mapping: "'" },
+            { letter: 'Э', mapping: 'E' }, { letter: 'Ю', mapping: 'Yu' }, { letter: 'Я', mapping: 'Ya' },
+            { letter: '0', mapping: 'ZERO' }, { letter: '1', mapping: 'ONE' }, { letter: '2', mapping: 'TWO' },
+            { letter: '3', mapping: 'THREE' }, { letter: '4', mapping: 'FOUR' }, { letter: '5', mapping: 'FIVE' },
+            { letter: '6', mapping: 'SIX' }, { letter: '7', mapping: 'SEVEN' }, { letter: '8', mapping: 'EIGHT' },
+            { letter: '9', mapping: 'NINE' }, { letter: '@', mapping: 'AT' }, { letter: '#', mapping: 'HASH' },
+            { letter: '$', mapping: 'DLR' }, { letter: '&', mapping: 'AND' }
+        ];
+        
+        // Полный алфавит для шифрования
+        const alphabet = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ0123456789@#$&";
+
+        function renderAlphabetPanel() {
+            const grid = document.getElementById('alphabet-grid');
+            if (!grid) return;
+            
+            let html = '';
+            russianAlphabet.forEach(item => {
+                html += `<div class="alphabet-cell">`;
+                html += `<div class="alphabet-letter">${item.letter}</div>`;
+                html += `<div class="alphabet-mapping">${item.mapping}</div>`;
+                html += `</div>`;
+            });
+            grid.innerHTML = html;
+        }
+
+        // --- ПЕРЕВОД КЛЮЧЕЙ ---
+        const keyTranslations = {
+            'reverse': 'ИНВЕРСИЯ', 'swap': 'ПЕРЕСТАНОВКА', 'shift': 'СДВИГ +1',
+            'shift_minus': 'СДВИГ -1', 'atbash': 'АТБАШ', 'noise': 'ШУМ'
+        };
+
+        // --- ГЕНЕРАЦИЯ ОГРОМНОГО СЛОВАРЯ (АВТОФИЛЬТРАЦИЯ ДО 6 БУКВ) ---
+        const rawWords = "АГЕНТ АДРЕС АКТИВ АЛИБИ АНГАР АНОНИМ АРМИЯ АРХИВ АТАКА АУДИТ АФЕРА БАГ БАЗА БАНДИТ БАНК БЕГЛЕЦ БИЛЕТ БИРЖА БЛОК БОЕВИК БОМБА БОСС БОТ БРАТВА БРОНЯ БУМАГА БУНКЕР ВВОД ВЕКТОР ВЕРСИЯ ВЗЛОМ ВЗРЫВ ВИДЕО ВИРУС ВОЙНА ВОКЗАЛ ВОР ВРАГ ВРЕМЯ ВЫВОД ВЫКУП ВЫСТРЕЛ ГАРАЖ ГЕНЕРАЛ ГЕРОЙ ГИЛЬЗА ГЛАВА ГЛИТЧ ГРАБЕЖ ГРАФИК ГРУППА ДАМП ДАННЫЕ ДАТА ДЕЛО ДЕНЬГИ ДЕТАЛЬ ДЖИП ДИЛЕР ДИСК ДЛИНА ДОГОВОР ДОКАЗ ДОКУМЕНТ ДОЛГ ДОМЕН ДОНОС ДОПРОС ДОСТУП ДРОН ДУБЛЬ ДЫРА ЖЕРТВА ЗАВОД ЗАКАЗ ЗАКОН ЗАЛОГ ЗАМОК ЗАПАС ЗАПИСЬ ЗАПРЕТ ЗАСАДА ЗАЩИТА ЗАЯВКА ЗВОНОК ЗДАНИЕ ЗЛОДЕЙ ЗНАК ЗОНА ИГРА ИДЕЯ ИЗМЕНА ИМЯ ИНДЕКС ИСК ИСТОК КАБЕЛЬ КАДР КАМЕРА КАНАЛ КАРТА КАССА КАСТЕТ КЕЙС КЛАН КЛАСС КЛИЕНТ КЛЮЧ КНИГА КОВАР КОВЕР КОД КОЛЛЕГА КОЛЬЦО КОМАНДА КОПИЯ КОРЕНЬ КОРПУС КОСЯК КРАЖА КРАХ КРИЗИС КРЫША КУПОЛ КУРЬЕР КЭШ ЛАЗЕР ЛИДЕР ЛИМИТ ЛИНИЯ ЛИЦО ЛОГИН ЛОГ ЛОЖЬ ЛОКАЦИЯ МАФИЯ МАШИНА МАЯК МЕСТО МЕТКА МЕТОД МЕХАНИК МИНА МИШЕНЬ МОДЕЛЬ МОДУЛЬ МОСТ МОТОР МРАК МУСОР НАБЕГ НАБОР НАВОД НАГРАДА НАЕМНИК НАЛОГ НАНЕС НАРЯД НЕБО НЕРВ НИТЬ НОМЕР НОУТ ОБМАН ОБМЕН ОБРЫВ ОБЪЕКТ ОГНЕСТРЕЛ ОГОНЬ ОПЕРА ОПРОС ОПЫТ ОРБИТА ОРДЕР ОРУЖИЕ ОСНОВА ОТВЕТ ОТДЕЛ ОТКАЗ ОТКУП ОТПРАВ ОТЧЕТ ПАКЕТ ПАНИКА ПАПКА ПАРОЛЬ ПАСПОРТ ПАТРОН ПАУК ПЕЙДЖЕР ПЕЛЕНГ ПЕРВЫЙ ПЕРЕХВАТ ПИЛОТ ПИНГ ПИРАТ ПИСТОЛЕТ ПЛАН ПЛАТА ПЛЕН ПЛОТ ПОБЕГ ПОДВОХ ПОДКУП ПОДЛОГ ПОДРЫВ ПОИСК ПОЛИЦИЯ ПОЛОСА ПОЛЮС ПОРТ ПОРЯДОК ПОСОЛ ПОСТ ПОТЕРЯ ПОЧТА ПРАВО ПРЕДЕЛ ПРЕССА ПРИВОД ПРИКАЗ ПРИЦЕЛ ПРОБА ПРОВОД ПРОЕКТ ПРОКСИ ПРОПУСК ПРОФИЛЬ ПУЛЯ ПУЛЬТ ПУТЬ РАДАР РАДИО РАЗБОЙ РАЗРЫВ РАКЕТА РАМКА РАСПИС РАСЧЕТ РЕБУС РЕЖИМ РЕЗЕРВ РЕЙД РЕЙС РЕКЕТ РЕЛЕ РЕСУРС РИСК РОБОТ РУБЛЬ РУЛЬ РЫНОК САЙТ САПЕР СБРОС СБЫТ СВЕТ СВЯЗЬ СДЕЛКА СЕЙФ СЕКРЕТ СЕКТОР СЕРИЯ СЕРВЕР СЕТЬ СИГНАЛ СИЛА СИНДИКАТ СИСТЕМА СКАНЕР СКЛАД СЛЕД СЛИТОК СЛОВО СЛОЖНО СМЕРТЬ СМЫСЛ СНАЙПЕР СНАРЯД СОВЕТ СОКОЛ СООБЩЕ СОЮЗ СПАМ СПИСОК СПУТНИК СРЕДА СРОК ССЫЛКА СТАТУС СТАФФ СТЕК СТЕНА СТИЛЬ СТОИМОСТЬ СТРАХ СТРЕЛОК СТРОКА СУБЪЕКТ СУД СУММА СФЕРА СХЕМА СЧЕТ СЮЖЕТ ТАЙНА ТАКТИКА ТАМОЖНЯ ТАНК ТАРИФ ТЕКСТ ТЕЛО ТЕМП ТЕНЬ ТЕОРИЯ ТЕРАКТ ТЕРМИН ТЕРРОР ТЕСТ ТЕХНИКА ТИП ТОВАР ТОКЕН ТОЧКА ТРАКТ ТРАССА ТРАФИК ТРЕК ТРОЯН ТРУБА ТУР ТЮРЬМА УБИЙЦА УБЫТОК УГОН УГРОЗА УДАР УЗЕЛ УЗНИК УКАЗ УЛИКА УЛИЦА УЛЬТИМАТУМ УМ УРОН УСЛОВИЕ УСПЕХ УСТАВ УСТРОЙ УТЕЧКА УЧЕТ ФАКТ ФАЙЛ ФАЛЬШ ФАЗА ФИЛЬТР ФИНАНС ФИРМА ФЛАГ ФЛОТ ФОНД ФОРМА ФОРУМ ФОТО ФРАЗА ФРОНТ ХАКЕР ХАОС ХИМИЯ ХИЩНИК ХОД ХОСТ ХРАМ ЦЕЛЬ ЦЕНА ЦЕНТР ЦЕПЬ ЦИФРА ЧАСТЬ ЧЕК ЧЕРТЕЖ ЧИП ЧИСЛО ШАГ ШАНС ШАНТАЖ ШЕФ ШИФР ШКАЛА ШКОЛА ШЛЕМ ШЛЮЗ ШОК ШПИОН ШТАБ ШТАМП ШТОПОР ШТРИХ ШТУРМ ЭКРАН ЭЛИТА ЭМИССИЯ ЭТАП ЯД ЯДРО ЯЩИК ABCDE FGHIJ KLMNO PQRST UVWXY Z01234 56789 @#$%^ &*()";
+        
+        // JS Магия: отсекаем слова длиннее 6 букв, убираем дубликаты и сортируем!
+        const validWords = [...new Set(rawWords.split(' ').filter(w => w.length >= 3 && w.length <= 6))].sort();
+
+        const wordListEl = document.getElementById('codebook-list');
+        validWords.forEach(w => {
+            const div = document.createElement('div');
+            div.className = 'codebook-word';
+            div.innerText = w;
+            wordListEl.appendChild(div);
+        });
+
+        function isValidWord(word) {
+            // Разрешаем русские и английские буквы, а также цифры
+            const cleanWord = word.replace(/[^А-Яа-яЁёA-Za-z0-9]/ig, '').toUpperCase();
+            return validWords.includes(cleanWord);
+        }
+
+        // --- ГЛОБАЛЬНАЯ СТАТИСТИКА ИГРЫ ---
+        let agentScore = 0;
+        let fsbScore = 0;
+        let currentRound = 0;
+        const MAX_ROUNDS = 15;
+
+        function updateScoreboardUI() {
+            document.getElementById('ui-round').innerText = currentRound;
+            document.getElementById('ui-score-agent').innerText = agentScore;
+            document.getElementById('ui-score-fsb').innerText = fsbScore;
+        }
+
+        // --- ДИНАМИЧЕСКАЯ МАТРИЦА ---
+        const canvas = document.getElementById('matrix-bg');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const letters = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*";
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+        const drops = Array.from({length: columns}).fill(1);
+        let matrixColor = "#0F0";
+        let matrixInterval = null;
+
+        function startMatrix() {
+            if (matrixInterval) clearInterval(matrixInterval);
+            matrixInterval = setInterval(drawMatrix, 33);
+        }
+
+        function drawMatrix() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = matrixColor; 
+            ctx.font = fontSize + "px Courier New";
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters[Math.floor(Math.random() * letters.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        
+        startMatrix();
+        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+
+        // --- АУДИО ---
+        let audioCtx = null;
+        try {
+            const AudioCtor = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtor) audioCtx = new AudioCtor();
+        } catch (e) {
+            audioCtx = null;
+        }
+        function playTerminalKeystroke() {
+            if (!audioCtx) return; if (audioCtx.state === 'suspended') audioCtx.resume();
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'square'; osc.frequency.setValueAtTime(800 + Math.random() * 200, t); 
+            gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.05);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(t); osc.stop(t+0.05);
+        }
+        function playProcessingBeep() {
+            if (!audioCtx) return; if (audioCtx.state === 'suspended') audioCtx.resume();
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.linearRampToValueAtTime(800, t+0.2); 
+            gain.gain.setValueAtTime(0.03, t); gain.gain.linearRampToValueAtTime(0.001, t+0.2);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(t); osc.stop(t+0.2);
+        }
+        function playSuccessChime() {
+            if (!audioCtx) return; if (audioCtx.state === 'suspended') audioCtx.resume();
+            const notes = [440, 554, 659, 880]; 
+            notes.forEach((freq, i) => {
+                const t = audioCtx.currentTime + i * 0.1;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = 'square'; osc.frequency.setValueAtTime(freq, t);
+                gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.1);
+                osc.connect(gain); gain.connect(audioCtx.destination); osc.start(t); osc.stop(t+0.1);
+            });
+        }
+        function playErrorBuzz() {
+            if (!audioCtx) return; if (audioCtx.state === 'suspended') audioCtx.resume();
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t);
+            gain.gain.setValueAtTime(0.1, t); gain.gain.linearRampToValueAtTime(0.001, t+0.3);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(t); osc.stop(t+0.3);
+        }
+
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('mousedown', () => { playTerminalKeystroke(); });
+            btn.addEventListener('click', () => { 
+                // Разблокировка аудио контекста при первом клике
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            });
+        });
+
+        function setupInputBoxes(selector) {
+            const boxes = document.querySelectorAll(selector);
+            boxes.forEach((box, index) => {
+                box.addEventListener('input', () => {
+                    playTerminalKeystroke(); box.value = box.value.replace(/[^А-Яа-яЁё]/ig, '').toUpperCase();
+                    if (box.value.length === 1 && index < boxes.length - 1) boxes[index + 1].focus();
+                });
+                box.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && box.value === '' && index > 0) boxes[index - 1].focus();
+                });
+            });
+        }
+        setupInputBoxes('.sender-box'); setupInputBoxes('.receiver-box'); setupInputBoxes('.fsb-box');
+
+        function getRandomKeys() {
+            // ONLINE BALANCE v0.4 - Сбалансировано для онлайн игры
+            // 70% — один метод, 25% — два, 5% — три (очень редко).
+            const roll = Math.random();
+            const count = roll < 0.70 ? 1 : (roll < 0.95 ? 2 : 3);
+            const pool = ['reverse', 'swap', 'shift', 'shift_minus', 'atbash'];
+            const keys = [];
+
+            while (keys.length < count) {
+                const key = pool[Math.floor(Math.random() * pool.length)];
+                if (keys.includes(key)) continue;
+                if (keys.length &&
+                    ((keys[keys.length - 1] === 'shift' && key === 'shift_minus') ||
+                     (keys[keys.length - 1] === 'shift_minus' && key === 'shift'))) continue;
+                keys.push(key);
+            }
+
+            if (count === 3 && Math.random() < 0.5) {
+                keys[keys.length - 1] = 'noise';
+            }
+            return keys;
+        }
+
+        function transformWord(word, type) {
+            if (!word) return word;
+            if (type === 'reverse') return word.split('').reverse().join('');
+            if (type === 'swap') { let a = word.split(''); for(let i=0; i<a.length-1; i+=2) { let t=a[i]; a[i]=a[i+1]; a[i+1]=t; } return a.join(''); }
+            if (type === 'shift') return word.split('').map(c => { let i = alphabet.indexOf(c); return i === -1 ? c : alphabet[(i+1)%alphabet.length]; }).join('');
+            if (type === 'shift_minus') return word.split('').map(c => { let i = alphabet.indexOf(c); return i === -1 ? c : alphabet[(i-1+alphabet.length)%alphabet.length]; }).join('');
+            if (type === 'atbash') { const rev = alphabet.split('').reverse().join(''); return word.split('').map(c => { let i = alphabet.indexOf(c); return i === -1 ? c : rev[i]; }).join(''); }
+            if (type === 'noise') { const chars = "1234567890@#$&"; let a = word.split(''); a.push(chars[Math.floor(Math.random()*chars.length)]); return a.join(''); }
+            if (type === 'clean_noise') return word.replace(/[^А-Яа-яЁё]/ig, '');
+            return word;
+        }
+
+        // --- СЕТЕВАЯ И ИГРОВАЯ ЛОГИКА ---
+        const socket = (typeof io === 'function')
+            ? io('https://sacred-trio-caretaker.ngrok-free.dev', {
+                transports: ['websocket'],
+                extraHeaders: { "ngrok-skip-browser-warning": "true" }
+              })
+            : {
+                connected: false,
+                on: function() {},
+                emit: function() {}
+              };
+        let currentLobby = null;
+        let myRole = null;
+        let isDevMode = false;
+
+        const statusBanner = document.getElementById('status-banner');
+        socket.on('connect', () => { statusBanner.innerText = '[ СОЕДИНЕНИЕ УСТАНОВЛЕНО ]'; statusBanner.style.color = '#33ff33'; statusBanner.style.borderColor = '#33ff33'; setTimeout(() => statusBanner.style.display = 'none', 2000); });
+        socket.on('connect_error', () => { statusBanner.style.display = 'block'; statusBanner.innerText = '[ ОШИБКА: ХОСТ НЕ ОТВЕЧАЕТ ]'; statusBanner.style.color = '#ff3333'; statusBanner.style.borderColor = '#ff3333'; });
+        socket.on('disconnect', () => { statusBanner.style.display = 'block'; statusBanner.innerText = '[ ОБРЫВ СВЯЗИ ]'; statusBanner.style.color = '#cccc33'; statusBanner.style.borderColor = '#cccc33'; });
+
+        function createLobby() { if(socket.connected) socket.emit('create_lobby'); }
+        function joinLobby() { const c = document.getElementById('join-code').value.trim(); if(c && socket.connected) socket.emit('join_lobby', c); }
+        
+        socket.on('lobby_created', (code) => { document.getElementById('my-code').innerText = code; document.getElementById('waiting-msg').style.display = 'block'; currentLobby = code; saveGameProgress(); });
+        socket.on('joined_lobby', (code) => { currentLobby = code; saveGameProgress(); });
+        socket.on('player_joined', (count) => { document.getElementById('waiting-msg').style.display = 'block'; document.getElementById('waiting-msg').innerText = `ОЖИДАНИЕ СУБЪЕКТОВ (${count}/3)...`; });
+        socket.on('error', (msg) => alert("[ СИСТЕМНЫЙ СБОЙ ]: " + msg));
+
+        socket.on('game_started', (data) => {
+            currentLobby = data.room;
+            document.getElementById('room-display').innerText = `(КАНАЛ: ${currentLobby})`;
+            chooseRole(data.role, false);
+            clearSaveProgress(); // Очищаем сохранение после начала игры
+        });
+
+        socket.on('packet_intercepted', (data) => {
+            if (myRole === 'receiver') handleIncomingReceiver(data.cipherText, data.appliedKeys);
+            if (myRole === 'fsb') handleIncomingFsb(data.cipherText);
+        });
+        
+        // Событие конца раунда от сервера
+        socket.on('round_end', (data) => {
+            if (data.winner === 'agent') agentScore++;
+            if (data.winner === 'fsb') fsbScore++;
+            currentRound++;
+            updateScoreboardUI();
+            saveGameProgress(); // Сохраняем прогресс после каждого раунда
+        });
+
+        let currentKeysUsed = []; 
+        let receiverOriginalCipher = ""; let receiverCurrentCipher = "";
+        let fsbOriginalCipher = ""; let fsbCurrentCipher = "";
+        let currentOriginalWord = "";
+
+        function openDevRoleScreen() { document.getElementById('lobby-screen').style.display = 'none'; document.getElementById('dev-role-screen').style.display = 'block'; }
+        function cancelDevRole() { document.getElementById('dev-role-screen').style.display = 'none'; document.getElementById('lobby-screen').style.display = 'block'; }
+        
+        function chooseRole(role, devMode = false) {
+            isDevMode = devMode;
+            myRole = role;
+            document.getElementById('dev-role-screen').style.display = 'none';
+            document.getElementById('lobby-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('dev-exit-container').style.display = isDevMode ? 'block' : 'none';
+            
+            if (role === 'fsb') { 
+                document.body.classList.add('fsb-mode'); 
+                matrixColor = "#F00"; 
+                document.getElementById('fsb-decryption-guide').style.display = 'block'; 
+            } else { 
+                document.body.classList.remove('fsb-mode'); 
+                matrixColor = "#0F0"; 
+                document.getElementById('fsb-decryption-guide').style.display = 'none'; 
+            }
+            // Перезапуск матрицы с новым цветом
+            startMatrix();
+
+            if (role === 'sender') { document.getElementById('role-sender').style.display = 'flex'; document.querySelector('.sender-box').focus(); }
+            if (role === 'receiver') { document.getElementById('role-receiver').style.display = 'flex'; document.querySelector('.receiver-box').focus(); }
+            if (role === 'fsb') { document.getElementById('role-fsb').style.display = 'flex'; document.querySelector('.fsb-box').focus(); }
+
+            if (isDevMode) startSinglePlayerRound();
+        }
+
+        function exitRoleDev() {
+            playTerminalKeystroke();
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('role-sender').style.display = 'none';
+            document.getElementById('role-receiver').style.display = 'none';
+            document.getElementById('role-fsb').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'none';
+            
+            document.body.classList.remove('fsb-mode'); 
+            matrixColor = "#0F0"; 
+            startMatrix(); // Перезапуск матрицы с зелёным цветом
+            document.getElementById('fsb-decryption-guide').style.display = 'none';
+            document.querySelectorAll('.sender-box, .receiver-box, .fsb-box').forEach(b => b.value = '');
+            
+            currentKeysUsed = []; agentScore = 0; fsbScore = 0; currentRound = 0;
+            clearTimeout(botTimer); updateScoreboardUI();
+            clearSaveProgress(); // Очищаем сохранение при выходе из одиночной игры
+            
+            const recCipher = document.getElementById('receiver-cipher-text');
+            recCipher.innerText = "ОЖИДАНИЕ ПАКЕТА..."; recCipher.classList.add('blink'); recCipher.style.color = "#ff3333";
+            document.getElementById('receiver-key-text').innerText = "[ НЕТ ДАННЫХ ]";
+            
+            const fsbCipher = document.getElementById('fsb-cipher-text');
+            fsbCipher.innerText = "ОЖИДАНИЕ ПАКЕТА..."; fsbCipher.classList.add('blink'); fsbCipher.style.color = "#ff3333";
+            
+            document.getElementById('dev-role-screen').style.display = 'block';
+        }
+
+        // --- ЛОГИКА ОДИНОЧНОЙ ИГРЫ (БОТЫ И РАУНДЫ) ---
+        let botTimer = null;
+
+        function generateBotPacket() {
+            let word = validWords[Math.floor(Math.random() * validWords.length)];
+            let encTypes = ['reverse', 'swap', 'shift', 'shift_minus', 'atbash', 'noise'];
+            
+            // ONLINE BALANCE v0.4: Более сбалансированная система для ботов
+            // 70% - 1 шифр, 25% - 2 шифра, 5% - 3 шифра (очень редко)
+            let rand = Math.random();
+            let numEnc;
+            if (rand < 0.70) numEnc = 1;
+            else if (rand < 0.95) numEnc = 2;
+            else numEnc = 3;
+            
+            let applied = []; let current = word;
+            for(let i=0; i<numEnc; i++) {
+                let e = encTypes[Math.floor(Math.random() * encTypes.length)];
+                applied.push(e); current = transformWord(current, e);
+            }
+            return { original: word, cipher: current, keys: applied };
+        }
+
+        function startSinglePlayerRound() {
+            if (currentRound >= MAX_ROUNDS) return triggerGameOver();
+            currentRound++;
+            updateScoreboardUI();
+
+            if (myRole === 'sender') {
+                resetWord(); // Ждем ввода пользователя
+            } else if (myRole === 'receiver') {
+                let pkt = generateBotPacket();
+                currentOriginalWord = pkt.original;
+                handleIncomingReceiver(pkt.cipher, pkt.keys);
+                startBotTimer('fsb', 22); // Бот ФСБ выиграет через 22 сек - у Агента больше времени (онлайн баланс)
+            } else if (myRole === 'fsb') {
+                let pkt = generateBotPacket();
+                currentOriginalWord = pkt.original;
+                handleIncomingFsb(pkt.cipher);
+                startBotTimer('agent', 25); // Бот Агент выиграет через 25 сек - у ФСБ больше времени на анализ (онлайн баланс)
+            }
+        }
+
+        function startBotTimer(winnerRole, seconds) {
+            clearTimeout(botTimer);
+            botTimer = setTimeout(() => {
+                playErrorBuzz();
+                alert(`[ ВРЕМЯ ИСТЕКЛО! ] Бот ${winnerRole === 'fsb' ? 'ФСБ' : 'АГЕНТ'} расшифровал пакет первым! Правильное слово: ${currentOriginalWord}`);
+                endRound(winnerRole);
+            }, seconds * 1000);
+        }
+
+        function endRound(winnerRole) {
+            clearTimeout(botTimer);
+            if(winnerRole === 'agent') agentScore++;
+            if(winnerRole === 'fsb') fsbScore++;
+            updateScoreboardUI();
+            
+            document.querySelectorAll('.sender-box, .receiver-box, .fsb-box').forEach(b => b.value = '');
+            
+            if (currentRound >= MAX_ROUNDS) {
+                setTimeout(triggerGameOver, 1000);
+            } else {
+                if (myRole !== 'sender') setTimeout(startSinglePlayerRound, 1500);
+            }
+        }
+
+        function triggerGameOver() {
+            playSuccessChime();
+            document.getElementById('game-over-screen').style.display = 'flex';
+            document.getElementById('final-score-text').innerText = `АГЕНТ: ${agentScore} | ФСБ: ${fsbScore}`;
+            
+            if (agentScore > fsbScore) {
+                document.getElementById('winner-text').innerText = "ПОБЕДА СИЛ БЕЗОПАСНОСТИ";
+                document.getElementById('winner-text').style.color = "#33ff33";
+            } else if (fsbScore > agentScore) {
+                document.getElementById('winner-text').innerText = "СИСТЕМА ВЗЛОМАНА (ФСБ)";
+                document.getElementById('winner-text').style.color = "#ff3333";
+            } else {
+                document.getElementById('winner-text').innerText = "НИЧЬЯ. ПЕРЕХВАТ ПРЕРВАН.";
+                document.getElementById('winner-text').style.color = "#cccc33";
+            }
+            
+            clearSaveProgress(); // Очищаем сохранение после конца игры
+        }
+
+        // --- УПРАВЛЕНИЕ КНОПКАМИ ---
+        function applyEncryption(type) {
+            const boxes = document.querySelectorAll('.sender-box');
+            let word = Array.from(boxes).map(b => b.value).join('');
+            if (!word) return; currentKeysUsed.push(type); 
+            const newWord = transformWord(word, type);
+            boxes.forEach((box, i) => box.value = newWord[i] || '');
+        }
+        function resetWord() { document.querySelectorAll('.sender-box').forEach(b => b.value = ''); currentKeysUsed = []; document.querySelector('.sender-box').focus(); }
+        
+        async function transmitData() {
+            const boxes = document.querySelectorAll('.sender-box');
+            let displayedWord = Array.from(boxes).map(b => b.value).join('');
+            let origWord = displayedWord;
+            [...currentKeysUsed].reverse().forEach(key => {
+                if (key === 'shift') origWord = transformWord(origWord, 'shift_minus');
+                else if (key === 'shift_minus') origWord = transformWord(origWord, 'shift');
+                else if (key === 'noise') origWord = transformWord(origWord, 'clean_noise');
+                else origWord = transformWord(origWord, key);
+            });
+            
+            if (!displayedWord) return;
+            if (!isValidWord(origWord)) { playErrorBuzz(); alert(`[ ОШИБКА ]: СЛОВО '${origWord}' ОТСУТСТВУЕТ В БАЗЕ ДАННЫХ!`); resetWord(); return; }
+
+            playTerminalKeystroke();
+            const btn = document.querySelector('#role-sender .send-btn');
+            btn.disabled = true; btn.innerText = "ПЕРЕДАЧА..."; btn.style.background = "#115511";
+            const leds = [document.getElementById('led-1'), document.getElementById('led-2'), document.getElementById('led-3')];
+            for (let i=0; i<3; i++) { leds[i].className = 'led yellow'; playProcessingBeep(); await new Promise(r => setTimeout(r, 600)); }
+            await new Promise(r => setTimeout(r, 500));
+            leds.forEach(l => l.className = 'led green'); playSuccessChime(); 
+            
+            if (!isDevMode && socket.connected) {
+                socket.emit('transmit_packet', { roomCode: currentLobby, cipherText: displayedWord, appliedKeys: currentKeysUsed, originalWord: origWord });
+            } else if (isDevMode) {
+                let winner = Math.random() > 0.5 ? 'agent' : 'fsb'; // Рандомно определяем, кто из ботов успел первым
+                alert(`[ ПАКЕТ ПЕРЕХВАЧЕН ]: Взлом завершил БОТ ${winner === 'fsb' ? 'ФСБ' : 'АГЕНТ'}.`);
+                endRound(winner);
+            }
+            
+            setTimeout(() => { if(!isDevMode) alert("[ СИСТЕМА ]: ПАКЕТ УСПЕШНО ПЕРЕДАН В СЕТЬ."); resetWord(); btn.disabled = false; btn.innerText = "ОТПРАВИТЬ ПАКЕТ"; btn.style.background = "#33ff33"; leds.forEach(l => l.className = 'led'); 
+                if (isDevMode && currentRound < MAX_ROUNDS) startSinglePlayerRound();
+            }, 100);
+        }
+
+        async function handleIncomingReceiver(cipherText, keys) {
+            receiverOriginalCipher = cipherText; receiverCurrentCipher = cipherText;
+            const cipherEl = document.getElementById('receiver-cipher-text'); const keyEl = document.getElementById('receiver-key-text');
+            playTerminalKeystroke();
+            cipherEl.innerText = receiverCurrentCipher; cipherEl.classList.remove('blink'); cipherEl.style.color = "#fff";
+            
+            keyEl.innerText = "[ ИДЕТ ПОИСК КЛЮЧА В БАЗЕ... ]"; keyEl.className = 'blink'; keyEl.style.color = "#cccc33";
+            await new Promise(r => setTimeout(r, 4000));
+            playSuccessChime();
+            
+            // НОВОЕ: Показываем только часть ключа (повреждённый ключ)
+            let translatedKeys = keys && keys.length > 0 ? keys.map(k => keyTranslations[k] || k) : [];
+            if (translatedKeys.length > 0) {
+                // Скрываем последний ключ - имитация повреждения данных
+                const partialKey = translatedKeys.slice(0, Math.max(1, Math.floor(translatedKeys.length / 2))).join(" ➔ ");
+                keyEl.className = ''; keyEl.style.color = "#ffcc00"; 
+                keyEl.innerText = partialKey + " ➔ [?? ПОВРЕЖДЕНО ??]";
+            } else {
+                keyEl.className = ''; keyEl.style.color = "#fff"; 
+                keyEl.innerText = "[ ШИФР НЕ ПРИМЕНЯЛСЯ ]";
+            }
+        }
+
+        function receiverApply(type) { if (!receiverCurrentCipher) return; playTerminalKeystroke(); receiverCurrentCipher = transformWord(receiverCurrentCipher, type); document.getElementById('receiver-cipher-text').innerText = receiverCurrentCipher; }
+        function receiverResetCipher() { playTerminalKeystroke(); receiverCurrentCipher = receiverOriginalCipher; document.getElementById('receiver-cipher-text').innerText = receiverCurrentCipher; }
+
+        function submitReceiverWord() {
+            const word = Array.from(document.querySelectorAll('.receiver-box')).map(b => b.value).join('');
+            if(!word) return; 
+            if (!isValidWord(word)) { playErrorBuzz(); alert(`[ ОШИБКА ]: СЛОВО '${word}' ОТСУТСТВУЕТ В БАЗЕ ДАННЫХ!`); return; }
+
+            playTerminalKeystroke();
+            if(!isDevMode && socket.connected) {
+                socket.emit('submit_guess', { roomCode: currentLobby, role: 'receiver', word: word });
+            } else {
+                if (word === currentOriginalWord) { playSuccessChime(); alert("УСПЕХ! ВЫ РАСШИФРОВАЛИ ПАКЕТ ПЕРВЫМ!"); endRound('agent'); } 
+                else { playErrorBuzz(); alert("ОШИБКА ДЕШИФРОВКИ! ВРЕМЯ ИДЕТ."); }
+            }
+        }
+
+        function handleIncomingFsb(cipherText) {
+            playTerminalKeystroke();
+            fsbOriginalCipher = cipherText; fsbCurrentCipher = cipherText;
+            const cipherEl = document.getElementById('fsb-cipher-text');
+            cipherEl.innerText = fsbCurrentCipher; cipherEl.classList.remove('blink'); cipherEl.style.color = "#fff";
+        }
+        function fsbApply(type) { if (!fsbCurrentCipher) return; playTerminalKeystroke(); fsbCurrentCipher = transformWord(fsbCurrentCipher, type); document.getElementById('fsb-cipher-text').innerText = fsbCurrentCipher; }
+        function fsbResetCipher() { playTerminalKeystroke(); fsbCurrentCipher = fsbOriginalCipher; document.getElementById('fsb-cipher-text').innerText = fsbCurrentCipher; }
+
+        function submitFsbWord() {
+            const word = Array.from(document.querySelectorAll('.fsb-box')).map(b => b.value).join('');
+            if(!word) return; 
+            if (!isValidWord(word)) { playErrorBuzz(); alert(`[ ОШИБКА ]: СЛОВО '${word}' ОТСУТСТВУЕТ В БАЗЕ ДАННЫХ!`); return; }
+
+            playTerminalKeystroke();
+            if(!isDevMode && socket.connected) {
+                socket.emit('submit_guess', { roomCode: currentLobby, role: 'fsb', word: word });
+            } else {
+                if (word === currentOriginalWord) { playSuccessChime(); alert("ВЗЛОМ УСПЕШЕН! ВЫ ПЕРЕХВАТИЛИ ДАННЫЕ."); endRound('fsb'); } 
+                else { playErrorBuzz(); alert("ОШИБКА ВЗЛОМА! ВРЕМЯ ИДЕТ."); }
+            }
+        }
+
+        async function startBootSequence() {
+            try {
+                const start = document.getElementById('start-screen');
+                const boot = document.getElementById('boot-screen');
+                const lobby = document.getElementById('lobby-screen');
+
+                if (start) start.style.display = 'none';
+                if (boot) {
+                    boot.style.display = 'inline-block';
+                    boot.innerHTML = '';
+                }
+
+                const bootText = [
+                    "ПЕРЕХВАТ OS v.1.0.4 Запуск ядра...",
+                    "Монтирование виртуальной файловой системы.......... [OK]",
+                    "Инициализация протоколов шифрования................ [OK]",
+                    "Обход брандмауэра узла связи....................... [OK]",
+                    "Загрузка пользовательского интерфейса.............. [ВЫПОЛНЕНО]"
+                ];
+
+                for (const line of bootText) {
+                    try { playTerminalKeystroke(); } catch (e) {}
+                    if (boot) boot.innerHTML += `> ${line}<br><br>`;
+                    await new Promise(r => setTimeout(r, 350));
+                }
+
+                await new Promise(r => setTimeout(r, 600));
+
+                if (boot) boot.style.display = 'none';
+                if (lobby) lobby.style.display = 'block';
+            } catch (e) {
+                // Never leave the player stuck on the start screen.
+                const start = document.getElementById('start-screen');
+                const boot = document.getElementById('boot-screen');
+                const lobby = document.getElementById('lobby-screen');
+                if (start) start.style.display = 'none';
+                if (boot) boot.style.display = 'none';
+                if (lobby) lobby.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
