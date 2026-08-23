@@ -50,6 +50,32 @@
         .codebook-list::-webkit-scrollbar-track { background: #020a02; }
         .codebook-list::-webkit-scrollbar-thumb { background: #33ff33; }
 
+        /* ПАНЕЛЬ АЛФАВИТА (ПРАВАЯ ЦЕНТРАЛЬНАЯ) */
+        .alphabet-panel { 
+            width: 280px; min-height: 400px; background: rgba(5, 17, 5, 0.9); border: 2px solid #33ff33; 
+            box-shadow: inset 0 0 15px rgba(51, 255, 51, 0.2); backdrop-filter: blur(4px); 
+            display: flex; flex-direction: column; text-align: center; transition: all 0.5s;
+            margin-top: 20px;
+        }
+        .alphabet-panel h3 { margin: 0; padding: 15px; border-bottom: 2px solid #33ff33; background: #0a220a; transition: all 0.5s; font-size: 16px; }
+        .alphabet-grid { 
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 10px; 
+            font-size: 12px; line-height: 1.3;
+        }
+        .alphabet-cell { 
+            border: 1px solid rgba(51, 255, 51, 0.3); padding: 4px 2px; 
+            background: rgba(51, 255, 51, 0.05); text-align: center;
+        }
+        .alphabet-letter { font-weight: bold; color: #33ff33; font-size: 14px; }
+        .alphabet-mapping { color: #777; font-size: 10px; }
+        
+        /* ТЕМА ФСБ ДЛЯ АЛФАВИТА */
+        body.fsb-mode .alphabet-panel { border-color: #ff3333; box-shadow: inset 0 0 15px rgba(255, 51, 51, 0.2); }
+        body.fsb-mode .alphabet-panel h3 { border-bottom-color: #ff3333; background: #220a0a; color: #ff3333; }
+        body.fsb-mode .alphabet-cell { border-color: rgba(255, 51, 51, 0.3); background: rgba(255, 51, 51, 0.05); }
+        body.fsb-mode .alphabet-letter { color: #ff3333; }
+        body.fsb-mode .alphabet-mapping { color: #999; }
+
         /* ПАНЕЛЬ СТАТИСТИКИ (ПРАВАЯ) */
         .scoreboard-panel { 
             width: 250px; height: 600px; background: rgba(5, 17, 5, 0.9); border: 2px solid #33ff33; 
@@ -156,9 +182,9 @@
             </div>
             <div class="rules-panel">
                 <h3>[ БАЗА ЗНАНИЙ: РОЛИ ]</h3>
-                <div class="role-desc"><strong>📡 СВЯЗНОЙ:</strong> Передайте 15 слов из СЛОВАРЯ. Зашифруйте их и отправьте в сеть.</div>
-                <div class="role-desc"><strong>🕵️ АГЕНТ:</strong> Получайте шифры. У вас есть 15 секунд до того, как ФСБ взломает пакет.</div>
-                <div class="role-desc"><strong>👁️ ФСБ:</strong> Вы перехватываете пакет без ключа. Подберите фильтры и введите слово за 15 сек.</div>
+                <div class="role-desc"><strong>📡 СВЯЗНОЙ:</strong> Передайте 15 слов из СЛОВАРЯ. Зашифруйте их комбинацией методов (1-3 шифра).</div>
+                <div class="role-desc"><strong>🕵️ АГЕНТ:</strong> Получайте шифры. КЛЮЧ ПОВРЕЖДЁН - показывается не полностью! Успейте расшифровать за 18 сек.</div>
+                <div class="role-desc"><strong>👁️ ФСБ:</strong> Перехватите пакет без ключа. Используйте АНАЛИЗАТОР для подсказок. Время: 20 сек.</div>
             </div>
         </div>
         <div style="margin-top: 30px;">
@@ -234,12 +260,15 @@
                 <div id="role-receiver" class="role-panel-container">
                     <div class="hardware-panel">
                         <h3>ТЕРМИНАЛ АГЕНТА</h3>
+                        <div style="border: 1px dashed #cccc33; padding: 8px; margin-bottom: 15px; background: rgba(204,204,51,0.03); font-size: 11px; color: #cccc33;">
+                            ⚠ КЛЮЧ ПОВРЕЖДЁН ПРИ ПЕРЕДАЧЕ - ВОЗМОЖНЫ ПОТЕРИ ДАННЫХ
+                        </div>
                         <div class="cipher-display">
                             <p style="color: #ff3333; margin: 0; font-size: 14px;">ВХОДЯЩИЙ ПАКЕТ ДАННЫХ:</p>
                             <h2 id="receiver-cipher-text" class="blink" style="letter-spacing: 10px; margin: 15px 0; font-size: 32px; color: #ff3333;">ОЖИДАНИЕ ПАКЕТА...</h2>
                         </div>
                         <div class="key-display">
-                            <p style="color: #cccc33; margin: 0; font-size: 14px;">СИСТЕМНЫЙ КЛЮЧ ДЕШИФРОВКИ:</p>
+                            <p style="color: #cccc33; margin: 0; font-size: 14px;">СИСТЕМНЫЙ КЛЮЧ ДЕШИФРОВКИ (ЧАСТИЧНЫЙ):</p>
                             <h3 id="receiver-key-text" style="margin: 15px 0; font-size: 20px; color: #555;">[ НЕТ ДАННЫХ ]</h3>
                         </div>
                         <p style="color: #777;">ВВЕДИТЕ РАСШИФРОВАННОЕ СЛОВО ИЗ СЛОВАРЯ:</p>
@@ -259,6 +288,9 @@
                 <div id="role-fsb" class="role-panel-container">
                     <div class="hardware-panel" style="border-color: #ff3333; box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.1);">
                         <h3 style="color: #ff3333; text-shadow: 0 0 8px rgba(255, 51, 51, 0.7);">ТЕРМИНАЛ ПЕРЕХВАТА</h3>
+                        <div style="border: 1px dashed #ff3333; padding: 8px; margin-bottom: 15px; background: rgba(255,51,51,0.03); font-size: 11px; color: #ff9999;">
+                            🔍 АНАЛИЗАТОР АКТИВЕН - ИСПОЛЬЗУЙТЕ ПОДСКАЗКИ СПРАВА
+                        </div>
                         <div class="cipher-display" style="border-color: #ff3333;">
                             <p style="color: #ff3333; margin: 0; font-size: 14px;">СЫРОЙ ПАКЕТ ДАННЫХ (БЕЗ КЛЮЧА):</p>
                             <h2 id="fsb-cipher-text" class="blink" style="letter-spacing: 10px; margin: 15px 0; font-size: 32px; color: #ff3333;">ОЖИДАНИЕ ПАКЕТА...</h2>
@@ -277,11 +309,22 @@
                 </div>
             </div>
 
-            <!-- ПРАВАЯ ПАНЕЛЬ (СТАТИСТИКА) -->
+            <!-- ПРАВАЯ ПАНЕЛЬ (АЛФАВИТ И СТАТИСТИКА) -->
+            <div style="display: flex; flex-direction: column;">
+            
+            <!-- ПАНЕЛЬ АЛФАВИТА -->
+            <div class="alphabet-panel">
+                <h3>[ СПРАВОЧНИК: АЛФАВИТ ]</h3>
+                <div class="alphabet-grid" id="alphabet-grid">
+                    <!-- Генерируется JS -->
+                </div>
+            </div>
+            
+            <!-- ПАНЕЛЬ СТАТИСТИКИ -->
             <div class="scoreboard-panel">
             <!-- СПРАВОЧНАЯ ПАНЕЛЬ ФСБ -->
             <div id="fsb-decryption-guide" class="decryption-guide">
-                <h3>[ СПРАВКА: ШИФРЫ ]</h3>
+                <h3>[ АНАЛИЗАТОР: ШИФРЫ ]</h3>
 <div class="balance-tip">
     <strong>ПАМЯТКА:</strong><br>
     Большинство пакетов используют только 1 способ шифрования.
@@ -340,6 +383,35 @@
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
+        // --- РУССКИЙ АЛФАВИТ ДЛЯ СПРАВОЧНИКА ---
+        const russianAlphabet = [
+            { letter: 'А', mapping: 'A' }, { letter: 'Б', mapping: 'B' }, { letter: 'В', mapping: 'V' },
+            { letter: 'Г', mapping: 'G' }, { letter: 'Д', mapping: 'D' }, { letter: 'Е', mapping: 'E' },
+            { letter: 'Ё', mapping: 'Yo' }, { letter: 'Ж', mapping: 'Zh' }, { letter: 'З', mapping: 'Z' },
+            { letter: 'И', mapping: 'I' }, { letter: 'Й', mapping: 'Y' }, { letter: 'К', mapping: 'K' },
+            { letter: 'Л', mapping: 'L' }, { letter: 'М', mapping: 'M' }, { letter: 'Н', mapping: 'N' },
+            { letter: 'О', mapping: 'O' }, { letter: 'П', mapping: 'P' }, { letter: 'Р', mapping: 'R' },
+            { letter: 'С', mapping: 'S' }, { letter: 'Т', mapping: 'T' }, { letter: 'У', mapping: 'U' },
+            { letter: 'Ф', mapping: 'F' }, { letter: 'Х', mapping: 'Kh' }, { letter: 'Ц', mapping: 'Ts' },
+            { letter: 'Ч', mapping: 'Ch' }, { letter: 'Ш', mapping: 'Sh' }, { letter: 'Щ', mapping: 'Sch' },
+            { letter: 'Ъ', mapping: '"' }, { letter: 'Ы', mapping: 'Y' }, { letter: 'Ь', mapping: "'" },
+            { letter: 'Э', mapping: 'E' }, { letter: 'Ю', mapping: 'Yu' }, { letter: 'Я', mapping: 'Ya' }
+        ];
+
+        function renderAlphabetPanel() {
+            const grid = document.getElementById('alphabet-grid');
+            if (!grid) return;
+            
+            let html = '';
+            russianAlphabet.forEach(item => {
+                html += `<div class="alphabet-cell">`;
+                html += `<div class="alphabet-letter">${item.letter}</div>`;
+                html += `<div class="alphabet-mapping">${item.mapping}</div>`;
+                html += `</div>`;
+            });
+            grid.innerHTML = html;
+        }
+
         // --- ПЕРЕВОД КЛЮЧЕЙ ---
         const keyTranslations = {
             'reverse': 'ИНВЕРСИЯ', 'swap': 'ПЕРЕСТАНОВКА', 'shift': 'СДВИГ +1',
@@ -595,7 +667,15 @@
         function generateBotPacket() {
             let word = validWords[Math.floor(Math.random() * validWords.length)];
             let encTypes = ['reverse', 'swap', 'shift', 'shift_minus', 'atbash', 'noise'];
-            let numEnc = Math.floor(Math.random() * 2) + 1; // Бот накладывает 1-2 фильтра
+            
+            // НОВОЕ: Более умная система наложения шифров для ботов
+            // 60% - 1 шифр, 30% - 2 шифра, 10% - 3 шифра (редко)
+            let rand = Math.random();
+            let numEnc;
+            if (rand < 0.6) numEnc = 1;
+            else if (rand < 0.9) numEnc = 2;
+            else numEnc = 3;
+            
             let applied = []; let current = word;
             for(let i=0; i<numEnc; i++) {
                 let e = encTypes[Math.floor(Math.random() * encTypes.length)];
@@ -615,12 +695,12 @@
                 let pkt = generateBotPacket();
                 currentOriginalWord = pkt.original;
                 handleIncomingReceiver(pkt.cipher, pkt.keys);
-                startBotTimer('fsb', 15); // Бот ФСБ выиграет через 15 сек
+                startBotTimer('fsb', 18); // Бот ФСБ выиграет через 18 сек - у Агента больше времени
             } else if (myRole === 'fsb') {
                 let pkt = generateBotPacket();
                 currentOriginalWord = pkt.original;
                 handleIncomingFsb(pkt.cipher);
-                startBotTimer('agent', 15); // Бот Агент выиграет через 15 сек
+                startBotTimer('agent', 20); // Бот Агент выиграет через 20 сек - у ФСБ больше времени на анализ
             }
         }
 
@@ -720,8 +800,17 @@
             await new Promise(r => setTimeout(r, 4000));
             playSuccessChime();
             
-            let translatedKeys = keys && keys.length > 0 ? keys.map(k => keyTranslations[k] || k).join(" ➔ ") : "[ ШИФР НЕ ПРИМЕНЯЛСЯ ]";
-            keyEl.className = ''; keyEl.style.color = "#fff"; keyEl.innerText = translatedKeys;
+            // НОВОЕ: Показываем только часть ключа (повреждённый ключ)
+            let translatedKeys = keys && keys.length > 0 ? keys.map(k => keyTranslations[k] || k) : [];
+            if (translatedKeys.length > 0) {
+                // Скрываем последний ключ - имитация повреждения данных
+                const partialKey = translatedKeys.slice(0, Math.max(1, Math.floor(translatedKeys.length / 2))).join(" ➔ ");
+                keyEl.className = ''; keyEl.style.color = "#ffcc00"; 
+                keyEl.innerText = partialKey + " ➔ [?? ПОВРЕЖДЕНО ??]";
+            } else {
+                keyEl.className = ''; keyEl.style.color = "#fff"; 
+                keyEl.innerText = "[ ШИФР НЕ ПРИМЕНЯЛСЯ ]";
+            }
         }
 
         function receiverApply(type) { if (!receiverCurrentCipher) return; playTerminalKeystroke(); receiverCurrentCipher = transformWord(receiverCurrentCipher, type); document.getElementById('receiver-cipher-text').innerText = receiverCurrentCipher; }
