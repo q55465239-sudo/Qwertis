@@ -383,7 +383,75 @@
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
+        // --- СОХРАНЕНИЕ ПРОГРЕССА ПРИ ОБНОВЛЕНИИ СТРАНИЦЫ (ONLINE РЕЖИМ) ---
+        const SAVE_KEY = 'perehvat_online_save_v0.4';
+        
+        function saveGameProgress() {
+            if (!myRole || !currentLobby) return;
+            const saveData = {
+                role: myRole,
+                lobby: currentLobby,
+                agentScore: agentScore,
+                fsbScore: fsbScore,
+                round: currentRound,
+                isDevMode: isDevMode,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+        }
+        
+        function loadGameProgress() {
+            const saved = localStorage.getItem(SAVE_KEY);
+            if (!saved) return null;
+            try {
+                const data = JSON.parse(saved);
+                // Сохранение действует 10 минут
+                if (Date.now() - data.timestamp > 600000) {
+                    localStorage.removeItem(SAVE_KEY);
+                    return null;
+                }
+                return data;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        function clearSaveProgress() {
+            localStorage.removeItem(SAVE_KEY);
+        }
+        
+        // Автосохранение при закрытии страницы
+        window.addEventListener('beforeunload', () => {
+            if (myRole && currentLobby) {
+                saveGameProgress();
+            }
+        });
+        
+        // Восстановление при загрузке страницы
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = loadGameProgress();
+            if (saved && socket.connected) {
+                // Попытка восстановить сессию
+                setTimeout(() => {
+                    socket.emit('restore_session', saved);
+                }, 1000);
+            }
+        });
+        
+        // Обработка ответа от сервера на восстановление сессии
+        socket.on('session_restored', (data) => {
+            if (data.success && data.gameState) {
+                agentScore = data.gameState.agentScore || 0;
+                fsbScore = data.gameState.fsbScore || 0;
+                currentRound = data.gameState.round || 0;
+                currentLobby = data.gameState.lobby;
+                chooseRole(data.gameState.role, data.gameState.isDevMode);
+                clearSaveProgress();
+            }
+        });
+
         // --- РУССКИЙ АЛФАВИТ ДЛЯ СПРАВОЧНИКА ---
+        // --- РАСШИРЕННЫЙ АЛФАВИТ С ЦИФРАМИ И СИМВОЛАМИ ---
         const russianAlphabet = [
             { letter: 'А', mapping: 'A' }, { letter: 'Б', mapping: 'B' }, { letter: 'В', mapping: 'V' },
             { letter: 'Г', mapping: 'G' }, { letter: 'Д', mapping: 'D' }, { letter: 'Е', mapping: 'E' },
@@ -395,8 +463,16 @@
             { letter: 'Ф', mapping: 'F' }, { letter: 'Х', mapping: 'Kh' }, { letter: 'Ц', mapping: 'Ts' },
             { letter: 'Ч', mapping: 'Ch' }, { letter: 'Ш', mapping: 'Sh' }, { letter: 'Щ', mapping: 'Sch' },
             { letter: 'Ъ', mapping: '"' }, { letter: 'Ы', mapping: 'Y' }, { letter: 'Ь', mapping: "'" },
-            { letter: 'Э', mapping: 'E' }, { letter: 'Ю', mapping: 'Yu' }, { letter: 'Я', mapping: 'Ya' }
+            { letter: 'Э', mapping: 'E' }, { letter: 'Ю', mapping: 'Yu' }, { letter: 'Я', mapping: 'Ya' },
+            { letter: '0', mapping: 'ZERO' }, { letter: '1', mapping: 'ONE' }, { letter: '2', mapping: 'TWO' },
+            { letter: '3', mapping: 'THREE' }, { letter: '4', mapping: 'FOUR' }, { letter: '5', mapping: 'FIVE' },
+            { letter: '6', mapping: 'SIX' }, { letter: '7', mapping: 'SEVEN' }, { letter: '8', mapping: 'EIGHT' },
+            { letter: '9', mapping: 'NINE' }, { letter: '@', mapping: 'AT' }, { letter: '#', mapping: 'HASH' },
+            { letter: '$', mapping: 'DLR' }, { letter: '&', mapping: 'AND' }
         ];
+        
+        // Полный алфавит для шифрования
+        const alphabet = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ0123456789@#$&";
 
         function renderAlphabetPanel() {
             const grid = document.getElementById('alphabet-grid');
@@ -535,12 +611,11 @@
         }
         setupInputBoxes('.sender-box'); setupInputBoxes('.receiver-box'); setupInputBoxes('.fsb-box');
 
-        const alphabet = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
         function getRandomKeys() {
-            // FAST BALANCE v0.3
-            // 78% — один метод, 20% — два, 2% — три.
+            // ONLINE BALANCE v0.4 - Сбалансировано для онлайн игры
+            // 70% — один метод, 25% — два, 5% — три (очень редко).
             const roll = Math.random();
-            const count = roll < 0.78 ? 1 : (roll < 0.98 ? 2 : 3);
+            const count = roll < 0.70 ? 1 : (roll < 0.95 ? 2 : 3);
             const pool = ['reverse', 'swap', 'shift', 'shift_minus', 'atbash'];
             const keys = [];
 
@@ -594,8 +669,8 @@
         function createLobby() { if(socket.connected) socket.emit('create_lobby'); }
         function joinLobby() { const c = document.getElementById('join-code').value.trim(); if(c && socket.connected) socket.emit('join_lobby', c); }
         
-        socket.on('lobby_created', (code) => { document.getElementById('my-code').innerText = code; document.getElementById('waiting-msg').style.display = 'block'; currentLobby = code; });
-        socket.on('joined_lobby', (code) => { currentLobby = code; });
+        socket.on('lobby_created', (code) => { document.getElementById('my-code').innerText = code; document.getElementById('waiting-msg').style.display = 'block'; currentLobby = code; saveGameProgress(); });
+        socket.on('joined_lobby', (code) => { currentLobby = code; saveGameProgress(); });
         socket.on('player_joined', (count) => { document.getElementById('waiting-msg').style.display = 'block'; document.getElementById('waiting-msg').innerText = `ОЖИДАНИЕ СУБЪЕКТОВ (${count}/3)...`; });
         socket.on('error', (msg) => alert("[ СИСТЕМНЫЙ СБОЙ ]: " + msg));
 
@@ -603,11 +678,21 @@
             currentLobby = data.room;
             document.getElementById('room-display').innerText = `(КАНАЛ: ${currentLobby})`;
             chooseRole(data.role, false);
+            clearSaveProgress(); // Очищаем сохранение после начала игры
         });
 
         socket.on('packet_intercepted', (data) => {
             if (myRole === 'receiver') handleIncomingReceiver(data.cipherText, data.appliedKeys);
             if (myRole === 'fsb') handleIncomingFsb(data.cipherText);
+        });
+        
+        // Событие конца раунда от сервера
+        socket.on('round_end', (data) => {
+            if (data.winner === 'agent') agentScore++;
+            if (data.winner === 'fsb') fsbScore++;
+            currentRound++;
+            updateScoreboardUI();
+            saveGameProgress(); // Сохраняем прогресс после каждого раунда
         });
 
         let currentKeysUsed = []; 
@@ -650,6 +735,7 @@
             
             currentKeysUsed = []; agentScore = 0; fsbScore = 0; currentRound = 0;
             clearTimeout(botTimer); updateScoreboardUI();
+            clearSaveProgress(); // Очищаем сохранение при выходе из одиночной игры
             
             const recCipher = document.getElementById('receiver-cipher-text');
             recCipher.innerText = "ОЖИДАНИЕ ПАКЕТА..."; recCipher.classList.add('blink'); recCipher.style.color = "#ff3333";
@@ -668,12 +754,12 @@
             let word = validWords[Math.floor(Math.random() * validWords.length)];
             let encTypes = ['reverse', 'swap', 'shift', 'shift_minus', 'atbash', 'noise'];
             
-            // НОВОЕ: Более умная система наложения шифров для ботов
-            // 60% - 1 шифр, 30% - 2 шифра, 10% - 3 шифра (редко)
+            // ONLINE BALANCE v0.4: Более сбалансированная система для ботов
+            // 70% - 1 шифр, 25% - 2 шифра, 5% - 3 шифра (очень редко)
             let rand = Math.random();
             let numEnc;
-            if (rand < 0.6) numEnc = 1;
-            else if (rand < 0.9) numEnc = 2;
+            if (rand < 0.70) numEnc = 1;
+            else if (rand < 0.95) numEnc = 2;
             else numEnc = 3;
             
             let applied = []; let current = word;
@@ -695,12 +781,12 @@
                 let pkt = generateBotPacket();
                 currentOriginalWord = pkt.original;
                 handleIncomingReceiver(pkt.cipher, pkt.keys);
-                startBotTimer('fsb', 18); // Бот ФСБ выиграет через 18 сек - у Агента больше времени
+                startBotTimer('fsb', 22); // Бот ФСБ выиграет через 22 сек - у Агента больше времени (онлайн баланс)
             } else if (myRole === 'fsb') {
                 let pkt = generateBotPacket();
                 currentOriginalWord = pkt.original;
                 handleIncomingFsb(pkt.cipher);
-                startBotTimer('agent', 20); // Бот Агент выиграет через 20 сек - у ФСБ больше времени на анализ
+                startBotTimer('agent', 25); // Бот Агент выиграет через 25 сек - у ФСБ больше времени на анализ (онлайн баланс)
             }
         }
 
@@ -743,6 +829,8 @@
                 document.getElementById('winner-text').innerText = "НИЧЬЯ. ПЕРЕХВАТ ПРЕРВАН.";
                 document.getElementById('winner-text').style.color = "#cccc33";
             }
+            
+            clearSaveProgress(); // Очищаем сохранение после конца игры
         }
 
         // --- УПРАВЛЕНИЕ КНОПКАМИ ---
